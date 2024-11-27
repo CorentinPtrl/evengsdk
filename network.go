@@ -3,9 +3,7 @@ package evengsdk
 import (
 	"context"
 	"encoding/json"
-	"maps"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -114,6 +112,10 @@ func (s *NetworkService) GetNetworksList() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	vals := slices.Collect(maps.Keys(eve.Data.(map[string]interface{})))
-	return vals, nil
+	data := eve.Data.(map[string]interface{})
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	return keys, nil
 }
