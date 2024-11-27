@@ -11,8 +11,8 @@ type FolderService struct {
 }
 
 type Folders struct {
-	Folders []Folder `json:"folders"`
-	Labs    []Lab    `json:"labs"`
+	Folders []Folder    `json:"folders"`
+	Labs    []LabFolder `json:"labs"`
 }
 
 type Folder struct {
