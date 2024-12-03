@@ -169,6 +169,9 @@ func TestNetworkService_NetworkVisibilityWithNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = client.Node.UpdateNodeInterface("/"+curtime.Format("15-04-05")+".unl", node.Id, 1, net.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	net.Visibility = "0"
 	err = client.Network.UpdateNetwork("/"+curtime.Format("15-04-05")+".unl", net)
 	if err != nil {
