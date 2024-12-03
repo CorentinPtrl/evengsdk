@@ -230,6 +230,24 @@ func TestNodeService_UpdateNodeConfig(t *testing.T) {
 	client.Node.DeleteNode("/"+time.Format("15-04-05")+".unl", node.Id)
 }
 
+func TestNodeService_GetInvalidNodeConfig(t *testing.T) {
+	client, err := evengsdk.NewBasicAuthClient(os.Getenv("EVE_USER"), os.Getenv("EVE_PASSWORD"), "0", os.Getenv("EVE_HOST"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	time := time.Now()
+	err = client.Lab.CreateLab("/"+time.Format("15-04-05")+".unl", evengsdk.Lab{
+		Description: "Unit Test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Lab.DeleteLab("/" + time.Format("15-04-05") + ".unl")
+	_, err = client.Node.GetNodeConfig("/"+time.Format("15-04-05")+".unl", 0)
+	if err == nil {
+		t.Fatal("Should have failed")
+	}
+}
 func TestNodeService_GetNodeInterfaces(t *testing.T) {
 	client, err := evengsdk.NewBasicAuthClient(os.Getenv("EVE_USER"), os.Getenv("EVE_PASSWORD"), "0", os.Getenv("EVE_HOST"))
 	if err != nil {
@@ -356,6 +374,17 @@ func TestNodeService_GetTemplates(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = client.Node.GetTemplates()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNodeService_GetTemplate(t *testing.T) {
+	client, err := evengsdk.NewBasicAuthClient(os.Getenv("EVE_USER"), os.Getenv("EVE_PASSWORD"), "0", os.Getenv("EVE_HOST"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Node.GetTemplate("vpcs")
 	if err != nil {
 		t.Fatal(err)
 	}

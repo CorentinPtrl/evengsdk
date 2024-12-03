@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,18 @@ type Login struct {
 	Html5    string `json:"html5,omitempty"`
 }
 
+type Auth struct {
+	Email    string `json:"email"`
+	Folder   string `json:"folder"`
+	Lab      string `json:"lab"`
+	Lang     string `json:"lang"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Tenant   int    `json:"tenant"`
+	Html5    int    `json:"html5"`
+	Username string `json:"username"`
+}
+
 type Client struct {
 	client                    *retryablehttp.Client
 	baseURL                   *url.URL
@@ -42,6 +55,7 @@ type Client struct {
 	Node                      *NodeService
 	Folder                    *FolderService
 	Network                   *NetworkService
+	mutex                     *sync.Mutex
 }
 
 func newClient() (*Client, error) {
@@ -62,6 +76,7 @@ func newClient() (*Client, error) {
 	c.Node = &NodeService{client: c}
 	c.Folder = &FolderService{client: c}
 	c.Network = &NetworkService{client: c}
+	c.mutex = &sync.Mutex{}
 	return c, nil
 }
 
@@ -98,7 +113,26 @@ func (c *Client) login() error {
 	return nil
 }
 
+func (c *Client) GetAuth() (*Auth, error) {
+	eve, _, err := c.Do(context.Background(), "GET", "api/auth", nil)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(eve.Data)
+	if err != nil {
+		return nil, err
+	}
+	var auth Auth
+	err = json.Unmarshal(data, &auth)
+	if err != nil {
+		return nil, err
+	}
+	return &auth, nil
+}
+
 func (c *Client) Do(ctx context.Context, method, url string, body []byte) (*Response, *http.Response, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	req, err := retryablehttp.NewRequest(method, c.baseURL.String()+url, bytes.NewBuffer(body))
 	req.Close = true
 	if err != nil {
@@ -124,6 +158,9 @@ func (c *Client) Do(ctx context.Context, method, url string, body []byte) (*Resp
 	err = json.Unmarshal(bodystr, &response)
 	if err != nil {
 		return &Response{Code: json.Number(strconv.Itoa(resp.StatusCode)), Message: resp.Status}, nil, err
+	}
+	if response.Status != "success" {
+		return &response, resp, errors.New(response.Message)
 	}
 	if status, _ := response.Code.Int64(); !(200 <= status && status <= 300) {
 		return &response, resp, errors.New(response.Message)

@@ -81,6 +81,7 @@ func (s *NodeService) GetNode(path string, node int) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	nodeConfig.Id = node
 	return &nodeConfig, nil
 }
 
@@ -172,6 +173,9 @@ func (s *NodeService) UpdateNodeInterface(path string, node int, intf int, netwo
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
 	data, err := json.Marshal(map[string]interface{}{strconv.Itoa(intf): network})
+	if network == 0 {
+		data, err = json.Marshal(map[string]interface{}{strconv.Itoa(intf): ""})
+	}
 	if err != nil {
 		return err
 	}
@@ -271,4 +275,12 @@ func (s *NodeService) GetTemplates() (map[string]string, error) {
 		return nil, err
 	}
 	return templates, nil
+}
+
+func (s *NodeService) GetTemplate(name string) (map[string]interface{}, error) {
+	eve, _, err := s.client.Do(context.Background(), "GET", "api/list/templates/"+name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return eve.Data.(map[string]interface{}), nil
 }
