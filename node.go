@@ -186,6 +186,34 @@ func (s *NodeService) UpdateNodeInterface(path string, node int, intf int, netwo
 	return nil
 }
 
+// GetNodeInterface returns the interface with the specified name of the node with the specified id in the specified path.
+// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
+// The name should be the name of the interface (e.g. Gi0/0).
+// returns the index of the interface, the interface and an error.
+func (s *NodeService) GetNodeInterface(path string, node int, intf string) (int, Interface, error) {
+	interfaces, err := s.GetNodeInterfaces(path, node)
+	if err != nil {
+		return 0, Interface{}, err
+	}
+	for index, eth := range interfaces.Ethernet {
+		if eth.Name == intf {
+			return index, eth, nil
+		}
+	}
+	return 0, Interface{}, errors.New("Interface not found")
+}
+
+// UpdateNodeInterfaceName updates the interface with the specified name of the node with the specified id in the specified path.
+// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
+// The name should be the name of the interface (e.g. Gi0/0).
+func (s *NodeService) UpdateNodeInterfaceName(path string, node int, intf string, network int) error {
+	index, _, err := s.GetNodeInterface(path, node, intf)
+	if err != nil {
+		return err
+	}
+	return s.UpdateNodeInterface(path, node, index, network)
+}
+
 // StartNode starts the node with the specified id in the specified path.
 // The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
 func (s *NodeService) StartNode(path string, node int) error {

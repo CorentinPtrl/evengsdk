@@ -46,23 +46,23 @@ func (s *NetworkService) GetNetworks(path string) (map[string]Network, error) {
 
 // GetNetwork returns the network with the specified id in the specified path.
 // The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
-func (s *NetworkService) GetNetwork(path string, id int) (*Network, error) {
+func (s *NetworkService) GetNetwork(path string, id int) (Network, error) {
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
 	eve, _, err := s.client.Do(context.Background(), "GET", "api/labs/"+path+url.QueryEscape(name)+"/networks/"+strconv.Itoa(id), nil)
 	if err != nil {
-		return nil, err
+		return Network{}, err
 	}
 	data, err := json.Marshal(eve.Data)
 	if err != nil {
-		return nil, err
+		return Network{}, err
 	}
 	var network Network
 	err = json.Unmarshal(data, &network)
 	if err != nil {
-		return nil, err
+		return Network{}, err
 	}
-	return &network, nil
+	return network, nil
 }
 
 // CreateNetwork creates a new network in the specified path.

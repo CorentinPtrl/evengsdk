@@ -176,11 +176,9 @@ func (c *Client) BaseURL() *url.URL {
 
 // setBaseURL sets the base URL for API requests to a custom endpoint.
 func (c *Client) setBaseURL(urlStr string) error {
-	// Make sure the given URL end with a slash
 	if !strings.HasSuffix(urlStr, "/") {
 		urlStr += "/"
 	}
-
 	baseURL, err := url.Parse(urlStr)
 	if err != nil {
 		return err

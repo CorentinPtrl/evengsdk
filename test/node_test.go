@@ -40,6 +40,31 @@ func TestNodeService_CreateNode(t *testing.T) {
 	client.Lab.DeleteLab("/" + time.Format("15-04-05") + ".unl")
 }
 
+func TestNodeService_CreateVPCNode(t *testing.T) {
+	client, err := evengsdk.NewBasicAuthClient(os.Getenv("EVE_USER"), os.Getenv("EVE_PASSWORD"), "0", os.Getenv("EVE_HOST"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	time := time.Now()
+	err = client.Lab.CreateLab("/"+time.Format("15-04-05")+".unl", evengsdk.Lab{
+		Description: "Unit Test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := &evengsdk.Node{
+		Name:     "vpc",
+		Template: "vpcs",
+		Type:     "qemu",
+	}
+	err = client.Node.CreateNode("/"+time.Format("15-04-05")+".unl", node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Node.DeleteNode("/"+time.Format("15-04-05")+".unl", node.Id)
+	client.Lab.DeleteLab("/" + time.Format("15-04-05") + ".unl")
+}
+
 func TestNodeService_GetNode(t *testing.T) {
 	client, err := evengsdk.NewBasicAuthClient(os.Getenv("EVE_USER"), os.Getenv("EVE_PASSWORD"), "0", os.Getenv("EVE_HOST"))
 	if err != nil {
