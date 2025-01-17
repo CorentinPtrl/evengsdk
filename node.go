@@ -155,6 +155,20 @@ func (s *NodeService) GetNodeInterfaces(path string, node int) (*Interfaces, err
 	if err != nil {
 		return nil, err
 	}
+	// some nodes have ethernet as map[string]interface{} instead of []interface{}, namely the IOL nodes
+	// check if type of eve.Data.(map[string]interface{})["ethernet"] is []interface{} or map[string]interface{}
+	// if it is map[string]interface{} then convert it to []interface{}, else leave it as is
+	ethernet := eve.Data.(map[string]interface{})["ethernet"]
+	if _, ok := ethernet.(map[string]interface{}); ok {
+		var eths []Interface
+		for _, v := range ethernet.(map[string]interface{}) {
+			eths = append(eths, Interface{
+				Name:      v.(map[string]interface{})["name"].(string),
+				NetworkId: int(v.(map[string]interface{})["network_id"].(float64)),
+			})
+		}
+		eve.Data.(map[string]interface{})["ethernet"] = eths
+	}
 	data, err := json.Marshal(eve.Data)
 	if err != nil {
 		return nil, err
