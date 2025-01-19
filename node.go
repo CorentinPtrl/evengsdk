@@ -32,14 +32,18 @@ type Node struct {
 	Ethernet int         `json:"ethernet"`
 	Uuid     string      `json:"uuid"`
 }
+
 type Interface struct {
 	Name      string `json:"name"`
 	NetworkId int    `json:"network_id"`
 }
 
+// InterfaceEntry can handle both slice and map structures.
+type InterfaceEntry []Interface
+
 type Interfaces struct {
-	Ethernet []Interface `json:"ethernet"`
-	Serial   []Interface `json:"serial"`
+	Ethernet InterfaceEntry `json:"ethernet"`
+	Serial   InterfaceEntry `json:"serial"`
 }
 
 // GetNodes returns all nodes in the specified path.
@@ -311,4 +315,22 @@ func (s *NodeService) GetTemplate(name string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	return eve.Data.(map[string]interface{}), nil
+}
+
+// some nodes have ethernet as map[string]interface{} instead of []interface{}, namely the IOL nodes
+// this function will convert the map to a slice
+func (e *InterfaceEntry) UnmarshalJSON(data []byte) error {
+	var slice []Interface
+	if err := json.Unmarshal(data, &slice); err == nil {
+		*e = slice
+		return nil
+	}
+	var m map[string]Interface
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	for _, entry := range m {
+		*e = append(*e, entry)
+	}
+	return nil
 }
