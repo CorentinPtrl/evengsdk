@@ -32,14 +32,18 @@ type Node struct {
 	Ethernet int         `json:"ethernet"`
 	Uuid     string      `json:"uuid"`
 }
+
 type Interface struct {
 	Name      string `json:"name"`
 	NetworkId int    `json:"network_id"`
 }
 
+// InterfaceEntry can handle both slice and map structures.
+type InterfaceEntry []Interface
+
 type Interfaces struct {
-	Ethernet []Interface `json:"ethernet"`
-	Serial   []Interface `json:"serial"`
+	Ethernet InterfaceEntry `json:"ethernet"`
+	Serial   InterfaceEntry `json:"serial"`
 }
 
 // GetNodes returns all nodes in the specified path.
@@ -154,20 +158,6 @@ func (s *NodeService) GetNodeInterfaces(path string, node int) (*Interfaces, err
 	eve, _, err := s.client.Do(context.Background(), "GET", "api/labs/"+path+url.QueryEscape(name)+"/nodes/"+strconv.Itoa(node)+"/interfaces", nil)
 	if err != nil {
 		return nil, err
-	}
-	// some nodes have ethernet as map[string]interface{} instead of []interface{}, namely the IOL nodes
-	// check if type of eve.Data.(map[string]interface{})["ethernet"] is []interface{} or map[string]interface{}
-	// if it is map[string]interface{} then convert it to []interface{}, else leave it as is
-	ethernet := eve.Data.(map[string]interface{})["ethernet"]
-	if _, ok := ethernet.(map[string]interface{}); ok {
-		var eths []Interface
-		for _, v := range ethernet.(map[string]interface{}) {
-			eths = append(eths, Interface{
-				Name:      v.(map[string]interface{})["name"].(string),
-				NetworkId: int(v.(map[string]interface{})["network_id"].(float64)),
-			})
-		}
-		eve.Data.(map[string]interface{})["ethernet"] = eths
 	}
 	data, err := json.Marshal(eve.Data)
 	if err != nil {
@@ -325,4 +315,22 @@ func (s *NodeService) GetTemplate(name string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	return eve.Data.(map[string]interface{}), nil
+}
+
+// some nodes have ethernet as map[string]interface{} instead of []interface{}, namely the IOL nodes
+// this function will convert the map to a slice
+func (e *InterfaceEntry) UnmarshalJSON(data []byte) error {
+	var slice []Interface
+	if err := json.Unmarshal(data, &slice); err == nil {
+		*e = slice
+		return nil
+	}
+	var m map[string]Interface
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	for _, entry := range m {
+		*e = append(*e, entry)
+	}
+	return nil
 }
