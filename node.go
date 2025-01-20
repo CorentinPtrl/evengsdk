@@ -39,7 +39,7 @@ type Interface struct {
 }
 
 // InterfaceEntry can handle both slice and map structures.
-type InterfaceEntry []Interface
+type InterfaceEntry map[int]Interface
 
 type Interfaces struct {
 	Ethernet InterfaceEntry `json:"ethernet"`
@@ -322,15 +322,15 @@ func (s *NodeService) GetTemplate(name string) (map[string]interface{}, error) {
 func (e *InterfaceEntry) UnmarshalJSON(data []byte) error {
 	var slice []Interface
 	if err := json.Unmarshal(data, &slice); err == nil {
-		*e = slice
+		for i, entry := range slice {
+			(*e)[i] = entry
+		}
 		return nil
 	}
-	var m map[string]Interface
+	var m map[int]Interface
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
-	for _, entry := range m {
-		*e = append(*e, entry)
-	}
+	*e = m
 	return nil
 }
