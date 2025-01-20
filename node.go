@@ -322,6 +322,7 @@ func (s *NodeService) GetTemplate(name string) (map[string]interface{}, error) {
 func (e *InterfaceEntry) UnmarshalJSON(data []byte) error {
 	var slice []Interface
 	if err := json.Unmarshal(data, &slice); err == nil {
+		*e = make(map[int]Interface, len(slice))
 		for i, entry := range slice {
 			(*e)[i] = entry
 		}
