@@ -3,6 +3,7 @@ package evengsdk
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"github.com/hashicorp/go-cleanhttp"
@@ -71,6 +72,7 @@ func newClient() (*Client, error) {
 			return false, nil
 		},
 	}
+	(c.client.HTTPClient.Transport).(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	c.Lab = &LabService{client: c}
 	c.Node = &NodeService{client: c}
