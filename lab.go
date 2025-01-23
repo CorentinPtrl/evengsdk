@@ -22,16 +22,6 @@ type Lab struct {
 	Version     json.Number `json:"version"`
 }
 
-type Topology struct {
-	Destination      string `json:"destination"`
-	DestinationLabel string `json:"destination_label"`
-	DestinationType  string `json:"destination_type"`
-	Source           string `json:"source"`
-	SourceLabel      string `json:"source_label"`
-	SourceType       string `json:"source_type"`
-	Type             string `json:"type"`
-}
-
 // GetLab returns the lab with the specified path.
 // The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
 func (s *LabService) GetLab(path string) (*Lab, error) {
@@ -150,7 +140,7 @@ func (s *LabService) UnlockLab(path string) error {
 
 // GetTopology returns the topology of the lab with the specified path.
 // The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
-func (s *LabService) GetTopology(path string) (*[]Topology, error) {
+func (s *LabService) GetTopology(path string) ([]map[string]interface{}, error) {
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
 	eve, _, err := s.client.Do(context.Background(), "GET", "api/labs"+path+url.QueryEscape(name)+"/topology", nil)
@@ -161,12 +151,12 @@ func (s *LabService) GetTopology(path string) (*[]Topology, error) {
 	if err != nil {
 		return nil, err
 	}
-	topology := []Topology{}
+	var topology []map[string]interface{}
 	err = json.Unmarshal(data, &topology)
 	if err != nil {
 		return nil, err
 	}
-	return &topology, nil
+	return topology, nil
 }
 
 // CloseLab closes the lab for the current user.

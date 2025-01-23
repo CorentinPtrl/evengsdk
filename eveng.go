@@ -52,6 +52,7 @@ type Client struct {
 	username, password, Html5 string
 	cookie                    *http.Cookie
 	UserAgent                 string
+	isPro                     bool
 	Lab                       *LabService
 	Node                      *NodeService
 	Folder                    *FolderService
@@ -111,7 +112,16 @@ func (c *Client) login() error {
 	if everesp.Status != "success" {
 		return errors.New("Login Failed")
 	}
-	c.cookie = resp.Cookies()[0]
+	unetlab := "unetlab_session"
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == unetlab {
+			c.cookie = cookie
+		}
+	}
+	c.isPro = false
+	if status, err := c.GetStatus(); err == nil && strings.Contains(strings.ToLower(status["version"].(string)), "pro") {
+		c.isPro = true
+	}
 	return nil
 }
 
@@ -130,6 +140,23 @@ func (c *Client) GetAuth() (*Auth, error) {
 		return nil, err
 	}
 	return &auth, nil
+}
+
+func (c *Client) GetStatus() (map[string]any, error) {
+	eve, _, err := c.Do(context.Background(), "GET", "api/status", nil)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(eve.Data)
+	if err != nil {
+		return nil, err
+	}
+	status := make(map[string]any)
+	err = json.Unmarshal(data, &status)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 func (c *Client) Do(ctx context.Context, method, url string, body []byte) (*Response, *http.Response, error) {
@@ -189,4 +216,8 @@ func (c *Client) setBaseURL(urlStr string) error {
 	c.baseURL = baseURL
 
 	return nil
+}
+
+func (c *Client) IsPro() bool {
+	return c.isPro
 }

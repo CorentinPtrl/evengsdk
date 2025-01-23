@@ -46,6 +46,26 @@ type Interfaces struct {
 	Serial   InterfaceEntry `json:"serial"`
 }
 
+type Style struct {
+	Style           string      `json:"style"`
+	Color           string      `json:"color"`
+	Srcpos          float32     `json:"srcpos"`
+	Dstpos          float32     `json:"dstpos"`
+	Linkstyle       string      `json:"linkstyle"`
+	Width           json.Number `json:"width"`
+	Label           string      `json:"label"`
+	Labelpos        float32     `json:"labelpos"`
+	Stub            json.Number `json:"stub"`
+	Curviness       json.Number `json:"curviness"`
+	Beziercurviness json.Number `json:"beziercurviness"`
+	Round           json.Number `json:"round"`
+	Midpoint        float32     `json:"midpoint"`
+	Id              string      `json:"id"`
+	Node            string      `json:"node"`
+	InterfaceId     string      `json:"interface_id"`
+	Type            string      `json:"type"`
+}
+
 // GetNodes returns all nodes in the specified path.
 // The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
 func (s *NodeService) GetNodes(path string) (map[string]Node, error) {
@@ -135,9 +155,7 @@ func (s *NodeService) DeleteNode(path string, nodeId int) error {
 	return nil
 }
 
-// StartNodes starts all nodes in the specified path.
-// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
-func (s *NodeService) StartNodes(path string) error {
+func (s *NodeService) startNodesCommunity(path string) error {
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
 	evengresp, _, err := s.client.Do(context.Background(), "GET", "api/labs/"+path[1:]+url.QueryEscape(name)+"/nodes/start", nil)
@@ -148,6 +166,29 @@ func (s *NodeService) StartNodes(path string) error {
 		return errors.New(evengresp.Message)
 	}
 	return nil
+}
+
+func (s *NodeService) startNodesPro(path string) error {
+	nodes, err := s.GetNodes(path)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		err = s.StartNode(path, node.Id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// StartNodes starts all nodes in the specified path.
+// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
+func (s *NodeService) StartNodes(path string) error {
+	if s.client.isPro {
+		return s.startNodesPro(path)
+	}
+	return s.startNodesCommunity(path)
 }
 
 // GetNodeInterfaces returns all interfaces of the node with the specified id in the specified path.
@@ -188,6 +229,42 @@ func (s *NodeService) UpdateNodeInterface(path string, node int, intf int, netwo
 		return err
 	}
 	return nil
+}
+
+// UpdateNodeInterfaceStyle updates the style of the interface with the specified id of the node with the specified id in the specified path.
+// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
+// The style parameter should be a Style struct. The attributes Node and Type will be set automatically.
+func (s *NodeService) UpdateNodeInterfaceStyle(path string, node int, style Style) error {
+	if !s.client.isPro {
+		return errors.New("This function is only available in the Pro version")
+	}
+	name := path[strings.LastIndex(path, "/")+1:]
+	path = path[:strings.LastIndex(path, "/")+1]
+	style.Node = strconv.Itoa(node)
+	style.Type = "ethernet"
+	data, err := json.Marshal(style)
+	if err != nil {
+		return err
+	}
+	_, _, err = s.client.Do(context.Background(), "PUT", "api/labs/"+path+url.QueryEscape(name)+"/nodes/"+strconv.Itoa(node)+"/style", data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateNodeInterfaceStyleByName updates the style of the interface with the specified name of the node with the specified id in the specified path.
+// The path should be the full path to the lab file, including the extension (e.g. /path/to/labfile.unl).
+// The name should be the name of the interface (e.g. Gi0/0).
+// The style parameter should be a Style struct. The attributes Node, Type, InterfaceId and Id will be set automatically.
+func (s *NodeService) UpdateNodeInterfaceStyleByName(path string, node int, intf string, style Style) error {
+	index, inter, err := s.GetNodeInterface(path, node, intf)
+	if err != nil {
+		return err
+	}
+	style.InterfaceId = strconv.Itoa(index)
+	style.Id = "network_id:" + strconv.Itoa(inter.NetworkId)
+	return s.UpdateNodeInterfaceStyle(path, node, style)
 }
 
 // GetNodeInterface returns the interface with the specified name of the node with the specified id in the specified path.
@@ -268,9 +345,18 @@ func (s *NodeService) StopNode(path string, node int) error {
 func (s *NodeService) GetNodeConfig(path string, node int) (string, error) {
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
-	eve, _, err := s.client.Do(context.Background(), "GET", "api/labs/"+path+url.QueryEscape(name)+"/configs/"+strconv.Itoa(node), nil)
+	var eve *Response
+	var err error
+	if s.client.isPro {
+		eve, _, err = s.client.Do(context.Background(), "POST", "api/labs/"+path+url.QueryEscape(name)+"/configs/"+strconv.Itoa(node), []byte("{\"cfsid\":\"default\"}"))
+	} else {
+		eve, _, err = s.client.Do(context.Background(), "GET", "api/labs/"+path+url.QueryEscape(name)+"/configs/"+strconv.Itoa(node), nil)
+	}
 	if err != nil {
 		return "", err
+	}
+	if eve.Data == nil {
+		return "", nil
 	}
 	return eve.Data.(map[string]interface{})["data"].(string), nil
 }
@@ -280,7 +366,11 @@ func (s *NodeService) GetNodeConfig(path string, node int) (string, error) {
 func (s *NodeService) UpdateNodeConfig(path string, node int, config string) error {
 	name := path[strings.LastIndex(path, "/")+1:]
 	path = path[:strings.LastIndex(path, "/")+1]
-	data, err := json.Marshal(map[string]string{"data": config})
+	payload := map[string]string{"data": config}
+	if s.client.isPro {
+		payload["cfsid"] = "default"
+	}
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
