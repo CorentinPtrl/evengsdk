@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -57,7 +56,6 @@ type Client struct {
 	Node                      *NodeService
 	Folder                    *FolderService
 	Network                   *NetworkService
-	mutex                     *sync.Mutex
 }
 
 func newClient() (*Client, error) {
@@ -66,10 +64,30 @@ func newClient() (*Client, error) {
 	c.client = &retryablehttp.Client{
 		ErrorHandler: retryablehttp.PassthroughErrorHandler,
 		HTTPClient:   cleanhttp.DefaultPooledClient(),
-		RetryWaitMin: 100 * time.Millisecond,
-		RetryWaitMax: 400 * time.Millisecond,
+		RetryWaitMin: 500 * time.Millisecond,
+		RetryWaitMax: 4 * time.Second,
 		RetryMax:     5,
+		Backoff:      retryablehttp.DefaultBackoff,
 		CheckRetry: func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			if err != nil {
+				return false, err
+			}
+			if 400 <= resp.StatusCode && resp.StatusCode < 500 {
+				return true, nil
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return true, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(body))
+			var response Response
+			err = json.Unmarshal(body, &response)
+			if err != nil {
+				return true, err
+			}
+			if response.Status != "success" {
+				return true, errors.New(response.Message)
+			}
 			return false, nil
 		},
 	}
@@ -79,7 +97,6 @@ func newClient() (*Client, error) {
 	c.Node = &NodeService{client: c}
 	c.Folder = &FolderService{client: c}
 	c.Network = &NetworkService{client: c}
-	c.mutex = &sync.Mutex{}
 	return c, nil
 }
 
@@ -160,8 +177,6 @@ func (c *Client) GetStatus() (map[string]any, error) {
 }
 
 func (c *Client) Do(ctx context.Context, method, url string, body []byte) (*Response, *http.Response, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	req, err := retryablehttp.NewRequest(method, c.baseURL.String()+url, bytes.NewBuffer(body))
 	req.Close = true
 	if err != nil {
