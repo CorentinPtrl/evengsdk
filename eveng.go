@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -56,6 +57,7 @@ type Client struct {
 	Node                      *NodeService
 	Folder                    *FolderService
 	Network                   *NetworkService
+	lock                      *sync.Mutex
 }
 
 func newClient() (*Client, error) {
@@ -97,6 +99,7 @@ func newClient() (*Client, error) {
 	c.Node = &NodeService{client: c}
 	c.Folder = &FolderService{client: c}
 	c.Network = &NetworkService{client: c}
+	c.lock = &sync.Mutex{}
 	return c, nil
 }
 
@@ -177,6 +180,8 @@ func (c *Client) GetStatus() (map[string]any, error) {
 }
 
 func (c *Client) Do(ctx context.Context, method, url string, body []byte) (*Response, *http.Response, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	req, err := retryablehttp.NewRequest(method, c.baseURL.String()+url, bytes.NewBuffer(body))
 	req.Close = true
 	if err != nil {
